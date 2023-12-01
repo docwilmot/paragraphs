@@ -1,0 +1,24 @@
+{
+  "_config_name": "layout.paragraphs.default",
+  "name": "default",
+  "title": "Default",
+  "module": "layout_paragraphs",
+  "description": "The default Paragraphs layout template in its simplest form.",
+  "rows": {
+    "paragraphs-layout-default-template": {
+      "contains": "region_12",
+      "element": "div",
+      "classes": "",
+      "container": "no_container",
+      "region_names": {
+        "region_0": {
+          "label": "Main Content",
+          "name": "content",
+          "region_class_enable": 0,
+          "classes": ""
+        }
+      }
+    }
+  },
+  "preview": "public://layout_template_thumbnails/default.png"
+}

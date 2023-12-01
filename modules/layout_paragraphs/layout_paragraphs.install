@@ -1,0 +1,12 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the Layout module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function layout_paragraphs_install() {
+  module_set_weight('layout', 61);
+}

@@ -1,0 +1,265 @@
+<?php
+/**
+ * @file
+ * Provides configurable Paragraphs layout templates.
+ *
+ * This provides the UI to list, create, edit and delete Paragraphs layouts.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function layout_paragraphs_permission() {
+  $perms = array(
+    'administer layout paragraphs' => array(
+      'title' => t('Administer Layout Paragraphs'),
+      'description' => t('Is able to administer Layouts for the Paragraphs module'),
+    ),
+  );
+  return $perms;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function layout_paragraphs_menu() {
+  $items = array();
+  $items['admin/structure/layouts/paragraphs'] = array(
+    'title' => 'Layout Paragraphs',
+    'description' => 'Manage Paragraph layout templates',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_settings_page'),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -5,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+  /*
+  $items['admin/structure/layouts/paragraphs/template/add'] = array(
+    'title' => 'Add Paragraphs layout template',
+    'page callback' => 'layout_paragraphs_template_settings_add_form',
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_LOCAL_ACTION,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/edit'] = array(
+    'title' => 'Configure Paragraphs layout template',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_settings_edit_form', 5),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/configure'] = array(
+    'title' => 'Configure Paragraphs layout template',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_configure_form', 5),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/delete'] = array(
+    'title' => 'Delete Paragraphs layout template',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_delete_form', 5),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/row/%/delete'] = array(
+    'title' => 'Delete row',
+    'page callback' => 'layout_paragraphs_template_delete_row',
+    'page arguments' => array(5,7),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_CALLBACK,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/row/%/select-widths'] = array(
+    'title' => 'Choose region widths',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_region_style_select', 5, 7),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_CALLBACK,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/row/%/configure'] = array(
+    'title' => 'Add row',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_edit_row_form', 5, 7),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_CALLBACK,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+
+  $items['admin/structure/layouts/paragraphs/template/%layout_paragraphs_tempstore/row/%/configure/%'] = array(
+    'title' => 'Add row',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('layout_paragraphs_template_edit_row_form', 5, 7, 9),
+    'access arguments' => array('administer layout paragraphs'),
+    'type' => MENU_CALLBACK,
+    'weight' => -10,
+    'file' => 'layout_paragraphs.admin.inc',
+  );
+  */
+  return $items;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function layout_paragraphs_field_widget_info() {
+  return array(
+    'layout_paragraphs' => array(
+      'label' => t('Layout UI'),
+      'field types' => array('paragraphs'),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function layout_paragraphs_field_widget_settings_form($field, $instance) {
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+  $form = array();
+
+  if ($widget['type'] == 'layout_paragraphs') {
+    $options = array(
+      'default' => t('Default'),
+    );
+    $templates = layout_paragraphs_template_load_all();
+    foreach ($templates as $template) {
+      $options[$template['name']] = $template['title'];
+    }
+    $form['available_layout_templates'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Layout templates'),
+      '#description' => t('Which layout template(s) should be available for this Paragraphs field?'),
+      '#options' => $options,
+      '#default_value' => (!empty($settings['available_layout_templates'])) ? $settings['available_layout_templates'] : 'default',
+      '#required' => TRUE,
+    );
+  }
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function layout_paragraphs_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  switch ($instance['widget']['type']) {
+    case 'layout_paragraphs':
+      // Return paragraphs_field_multiple_value_form($field, $instance, $langcode, $items, $form, $form_state, $delta, $element);.
+      form_load_include($form_state, 'inc', 'layout_paragraphs', 'layout_paragraphs.admin');
+      return layout_paragraphs_edit_content($form, $form_state, $field, $instance);
+  }
+}
+
+/**
+ * Load all Paragraphs templates.
+ *
+ */
+function layout_paragraphs_template_load_all() {
+  $templates = &backdrop_static(__FUNCTION__, array());
+
+  if (empty($templates)) {
+    $configs = array();
+    $config_names = config_get_names_with_prefix('layout.paragraphs.');
+    $configs = config_load_multiple($config_names);
+    foreach ($configs as $config) {
+      $templates[$config['name']] = $config;
+    }
+  }
+
+  return $templates;
+}
+
+/**
+ * Implements hook_layout_renderer_info().
+ */
+function layout_paragraphs_layout_renderer_info() {
+  $info = array(
+    'layout_paragraphs' => array(
+      'class' => 'LayoutRendererParagraphs',
+    ),
+    'layout_paragraphs_editor' => array(
+      'class' => 'LayoutRendererEditorParagraphs',
+    ),
+  );
+  return $info;
+}
+
+/**
+ * Implements hook_config_info().
+ */
+function layout_paragraphs_config_info() {
+  $prefixes['layout.paragraphs'] = array(
+    'name_key' => 'name',
+    'label_key' => 'title',
+    'group' => t('Layout Paragraphs'),
+  );
+  return $prefixes;
+}
+
+/**
+ * Reset all caches provided by Layout Paragraphs module.
+ */
+function layout_paragraphs_reset_caches() {
+  cache()->delete('layout:paragraphs:config');
+
+  backdrop_static_reset('layout_paragraphs_template_load_all');
+  backdrop_static_reset('layout_paragraphs_tempstore_load');
+}
+
+/**
+ * Implements hook_autoload_info().
+ */
+function layout_paragraphs_autoload_info() {
+  return array(
+    'LayoutRendererParagraphs' => 'plugins/renderers/layout_renderer_paragraphs.inc',
+    'LayoutRendererEditorParagraphs' => 'plugins/renderers/layout_renderer_editor_paragraphs.inc',
+    'LayoutParagraphsBlock' => 'includes/block.paragraphs.inc',
+  );
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function layout_paragraphs_block_info() {
+  $blocks = array();
+
+  // Layout Paragraph blocks.
+  /*
+  $blocks['paragraph'] = array(
+    'info' => t('Paragraph'),
+    'description' => t('Placeholder for Paragraphs block.'),
+    'class' => 'LayoutParagraphsBlock',
+    'required contexts' => array('paragraphs'),
+  );
+  */
+  $blocks['welcome2'] = array(
+    'info' => t('Dashboard - Welcome to Backdrop CMS!'),
+    'description' => t('Provides a welcome message, and links to get people started using Backdrop'),
+    'class' => 'DashboardWelcomeBlock',
+    'required contexts' => array('dashboard'),
+  );
+  return $blocks;
+}
