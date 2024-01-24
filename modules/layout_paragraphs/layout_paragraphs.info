@@ -7,5 +7,7 @@ tags[] = Site Architecture
 tags[] = Paragraphs
 package = Paragraphs
 
+stylesheets[all][] = css/layout_paragraphs.css
+
 dependencies[] = paragraphs
 dependencies[] = layout

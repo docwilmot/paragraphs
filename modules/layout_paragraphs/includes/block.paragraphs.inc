@@ -1,76 +1,179 @@
 <?php
 /**
  * @file
- * Layout Paragraphs block will eventually allow adding a Paragraph to content
+ * A Paragraphs block will eventually allow adding a Paragraph to content
  * via the Layout Paragraphs module.
  */
-class LayoutParagraphsBlock extends Block {
+class BlockParagraphs extends Block {
   /**
    * {@inheritdoc}
    */
-  function getTitle() {
-    return !empty($this->settings['title']) ? check_plain($this->settings['title']) : t('Welcome to Backdrop CMS!');
+  function __construct($plugin_name, array $data) {
+    parent::__construct($plugin_name, $data);
+
+    $this->settings += array(
+      'content' => '',
+      'format' => NULL,
+    );
   }
 
   /**
-   * {@inheritdoc}
+   *  Sets title text on draggable block panel in Layout builder.
    */
   function getAdminTitle() {
     if (!empty($this->settings['admin_label'])) {
       return check_plain($this->settings['admin_label']);
     }
 
-    return t('Welcome to Backdrop CMS!');
+    return !empty($this->settings['title']) ? check_plain($this->settings['title']) : t('Custom block');
   }
 
   /**
-   * {@inheritdoc}
+   *  Sets block subject on block view.
    */
-  function getAdminPreview() {
-    if (!empty($this->settings['admin_description'])) {
-      return filter_xss($this->settings['admin_description']);
-    }
-
-    return t('Welcome message, and links to getting-started tasks.');
+  function getTitle() {
+    return isset($this->settings['title']) ? check_plain($this->settings['title']) : '';
   }
 
   /**
-   * {@inheritdoc}
+   * Returns the rendered content of this block.
+   *
+   * @return string
    */
   function getContent() {
-    $build['tbd'] = array(
-      '#type' => 'help',
-      '#markup' => t('Layout Paragraphs block is not yet implemented.'),
-    );
-    return $build;
+    if (!empty($this->settings['content'])) {
+      return check_markup(token_replace($this->settings['content']), $this->settings['format'], '', TRUE);
+    }
   }
 
   /**
-   * Checks access to paths and returns an HTML list of links.
-   *
-   * @param array $links
-   *   An array with each key being a path and each value being a label.
-   *
-   * @return array
-   *   An array of HTML anchor tags for items the user may access.
+   *  Builds the block's configuration form.
    */
-  private function filterAvailableLinks(array $links) {
-    $html_links = array();
-    foreach ($links as $path => $label) {
-      if (url_is_external($path) || $path === '<front>') {
-        if ($path !== '<front>') {
-          $label .= '<span class="dashboard-external"></span>';
-        }
-        $access = TRUE;
-      }
-      else {
-        $router_item = menu_get_item($path);
-        $access = $router_item && $router_item['access'];
-      }
-      if ($access) {
-        $html_links[] = l($label, $path, array('html' => TRUE));
+  function form(&$form, &$form_state) {
+    parent::form($form, $form_state);
+
+    // Hide the title display, as custom text blocks don't have "default" title
+    // from which they would inherit, so it's either a custom title or no title.
+    $form['title_display']['title_display']['#access'] = FALSE;
+
+    $form['#attached']['js'][] = backdrop_get_path('module', 'layout') . '/js/layout.admin.js';
+
+    $form['title_display']['title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Display title'),
+      '#default_value' => $this->settings['title'],
+      '#maxlength' => 255,
+    );
+    $form['content'] = array(
+      '#type' => 'text_format',
+      '#title' => t('Block content'),
+      '#default_value' => $this->settings['content'],
+      '#format' => $this->settings['format'],
+      '#editor_uploads' => TRUE,
+      '#rows' => 5,
+    );
+
+    if (module_exists('block')) {
+      $form['convert'] = array(
+        '#weight' => 2,
+        '#parents' => array(),
+      );
+      $form['convert']['reusable'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Make this block reusable'),
+        '#description' => t('If enabled, this block will be made reusable across different layouts and be listed in on the !block_link page.', array('!block_link' => l(t('Custom blocks'), 'admin/structure/block'))),
+        '#weight' => 1,
+      );
+      // Add a notice for translation.
+      if (module_exists('locale')) {
+        $form['convert']['reusable']['#description'] .= ' ' . t('Reusable blocks may also be translated.');
       }
     }
-    return $html_links;
+    $form['admin_label'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Admin label'),
+      '#tree' => FALSE,
+      '#collapsed' => empty($this->settings['admin_label']),
+      '#states' => array(
+        'collapsed' => array(
+          ':input[name="reusable"]' => array('checked' => FALSE),
+        ),
+      ),
+      '#collapsible' => TRUE,
+      '#weight' => 4,
+    );
+    $form['admin_label']['admin_label'] = array(
+      '#type' => 'textfield',
+      '#default_value' => isset($this->settings['admin_label']) ? $this->settings['admin_label'] : '',
+      '#title' => t('Admin label'),
+      '#description' => t('Used to identify the block on layout pages. Required for reusable blocks.'),
+      '#maxlength' => 255,
+    );
+    $form['admin_label']['delta'] = array(
+      '#type' => 'machine_name',
+      '#title' => t('Internal name'),
+      '#maxlength' => 64,
+      '#machine_name' => array(
+        'source' => array('admin_label', 'admin_label'),
+        'exists' => 'block_custom_block_load',
+      ),
+      '#description' => t('A unique machine-readable name containing letters, numbers, and underscores.'),
+      '#weight' => 3,
+      '#required' => FALSE,
+    );
+    $form['admin_label']['admin_description'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Admin description'),
+      '#maxlength' => 128,
+      '#default_value' => isset($this->settings['admin_description']) ? $this->settings['admin_description'] : '',
+      '#description' => t('This text is used only in administrative interfaces. It will not be shown to site visitors.<br />Allowed HTML tags: @tags', array('@tags' => _filter_xss_display_allowed_tags())),
+      '#weight' => 4,
+    );
+  }
+
+  /**
+   * Validates the form settings.
+   */
+  function formValidate($form, &$form_state) {
+    parent::formValidate($form, $form_state);
+
+    if (module_exists('block')) {
+      $admin_label = trim($form_state['values']['admin_label']);
+      $delta = trim($form_state['values']['delta']);
+      if ($form_state['values']['reusable']) {
+        if (empty($admin_label)) {
+          form_error($form['admin_label']['admin_label'], t('Admin label is required when making a block reusable.'));
+        }
+        elseif (empty($delta)) {
+          form_error($form['admin_label']['delta'], t('An internal name is required when making a block reusable.'));
+        }
+      }
+    }
+  }
+
+  /**
+   * Submit handler to save the form settings.
+   */
+  function formSubmit($form, &$form_state) {
+    parent::formSubmit($form, $form_state);
+
+    if (module_exists('block') && $form_state['values']['reusable']) {
+      $delta = $form_state['values']['delta'];
+      $this->settings = array_diff_key($this->settings, array('title' => '', 'content' => '', 'format' => ''));
+      $this->plugin = 'block:' . $delta;
+
+      $edit = array(
+        'info' => $form_state['values']['admin_label'],
+        'title' => $form_state['values']['title'],
+        'description' => $form_state['values']['admin_description'],
+        'body' => $form_state['values']['content'],
+      );
+      block_custom_block_save($edit, $delta);
+    }
+    else {
+      $this->settings['title'] = $form_state['values']['title'];
+      $this->settings['content'] = $form_state['values']['content']['value'];
+      $this->settings['format'] = $form_state['values']['content']['format'];
+    }
   }
 }

@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Install, update and uninstall functions for the Layout module.
+ * Install, update and uninstall functions for the Layout Paragraphs module.
  */
 
 /**
@@ -9,4 +9,30 @@
  */
 function layout_paragraphs_install() {
   module_set_weight('layout', 61);
+}
+
+
+/**
+ * Implements hook_schema().
+ */
+function layout_paragraphs_schema() {
+  $schema = array();
+
+  $schema['layout_paragraphs'] = array(
+    'fields' => array(
+      'layout_name' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'layout_template' => array(
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'length' => '255',
+      ),
+    ),
+    'primary key' => array('layout_name'),
+  );
+
+  return $schema;
 }

@@ -9,14 +9,20 @@ class LayoutRendererEditorParagraphs extends LayoutRendererEditor {
    * {@inheritdoc}
    */
   function __construct(Layout $layout, array $renderer_plugin) {
-    parent::__construct($layout, $renderer_plugin);
+    $template_id = $layout->layout_template;
 
-    // Set the page title region if not already.
-    if (!isset($this->layout_info['regions']['title'])) {
-      $this->layout_info['regions']['title'] = t('Page title');
+    $template_info = layout_paragraphs_get_layout_template_info($template_id);
+    $template_data = layout_flexible_tempstore_load($template_id, 'paragraphs');
+
+    foreach ($template_data->rows as $position => $info) {
+      $layout->positions[$position] = array();
+      $template_info['regions'][$position] = $position;
     }
-    $this->admin = TRUE;
 
+    $this->admin = TRUE;
+    $this->layout = &$layout;
+    $this->layout_info = $template_info;
+    $this->plugin = $renderer_plugin;
   }
 
   /**
@@ -40,6 +46,38 @@ class LayoutRendererEditorParagraphs extends LayoutRendererEditor {
     $output .= '</div>';
 
     return $output;
+  }
+
+  /**
+   * Perform display/layout-level render operations.
+   *
+   * This method triggers all the inner block/region rendering processes, passes
+   * that to the layout plugin's theme callback, and returns the rendered HTML.
+   *
+   * If display-level caching is enabled and that cache is warm, this method
+   * will not be called.
+   *
+   * @return string
+   *   The HTML string representing the entire rendered, themed layout.
+   */
+  function renderLayout() {
+    if (empty($this->prep_run)) {
+      $this->prepare();
+    }
+
+    $this->renderBlocks();
+
+    $this->renderRegions();
+
+    module_load_include('inc', 'layout', 'layout.theme');
+    if (empty($this->layout_info['template'])) {
+      $theme = 'layout__' . $this->layout->layout_template;
+    }
+    else {
+      $theme = str_replace('-', '_', $this->layout_info['template']);
+    }
+    $this->rendered['layout'] = theme($theme, array('content' => $this->rendered['regions'], 'settings' => $this->layout->settings, 'layout' => $this->layout, 'layout_info' => $this->layout_info, 'renderer' => $this, 'admin' => $this->admin));
+    return $this->prefix . $this->rendered['layout'] . $this->suffix;
   }
 
   /**
@@ -167,7 +205,7 @@ class LayoutRendererEditorParagraphs extends LayoutRendererEditor {
   function getUrl($command) {
     $args = func_get_args();
     $command = array_shift($args);
-    $url = 'admin/structure/layouts/manage/' . $this->layout->name . '/' . $command . '/' . $this->plugin['name'];
+    $url = 'admin/structure/paragraphs/layouts/manage/' . $this->layout->name . '/' . $command . '/' . $this->plugin['name'];
     if ($args) {
       $url .= '/' . implode('/', $args);
     }
@@ -192,7 +230,7 @@ class LayoutRendererEditorParagraphs extends LayoutRendererEditor {
     }
     else {
       $links['add'] = array(
-        'title' => t('Add block'),
+        'title' => t('Add paragraph'),
         'href' => $this->getUrl('add-block', $region_id),
         'attributes' => array(
           'class' => array('use-ajax'),
